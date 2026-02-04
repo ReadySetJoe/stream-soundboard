@@ -6,7 +6,6 @@ const path = require('path');
 const fs = require('fs');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = process.env.HOSTNAME || '0.0.0.0';
 const port = parseInt(process.env.PORT, 10) || 3000;
 
 // Ensure uploads directory exists
@@ -15,7 +14,7 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const app = next({ dev, hostname, port });
+const app = next({ dev, hostname: 'localhost', port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
@@ -67,8 +66,8 @@ app.prepare().then(() => {
     return handle(req, res);
   });
 
-  server.listen(port, hostname, () => {
-    console.log(`> Ready on http://${hostname === '0.0.0.0' ? 'localhost' : hostname}:${port}`);
+  server.listen(port, () => {
+    console.log(`> Ready on http://localhost:${port}`);
     if (!dev) {
       console.log(`> Production mode enabled`);
     }

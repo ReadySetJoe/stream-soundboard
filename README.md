@@ -1,6 +1,10 @@
-# Stream Soundboard
+# JOE-BS
 
-A web-based soundboard for streamers. Play sounds on your stream via browser source.
+Stream tools that (should) just work.
+
+## Soundboard
+
+Play sounds on your stream via browser source.
 
 ## How it Works
 

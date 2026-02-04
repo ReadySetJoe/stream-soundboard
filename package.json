@@ -1,7 +1,7 @@
 {
-  "name": "stream-soundboard",
+  "name": "joe-bs",
   "version": "1.0.0",
-  "description": "Web-based soundboard for streamers",
+  "description": "JOE-BS: Stream tools that (should) just work",
   "main": "server.js",
   "scripts": {
     "dev": "node server.js",

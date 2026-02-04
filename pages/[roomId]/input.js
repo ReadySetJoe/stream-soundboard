@@ -140,10 +140,10 @@ export default function InputPage() {
   return (
     <>
       <Head>
-        <title>{`Soundboard - ${roomId || ''}`}</title>
+        <title>{`JOE-BS Soundboard - ${roomId || ''}`}</title>
       </Head>
       <div className="input-page container">
-        <h1>Soundboard Controller</h1>
+        <h1>JOE-BS Soundboard</h1>
         <p className="room-info">
           Room: <strong>{roomId}</strong>
         </p>

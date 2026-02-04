@@ -25,12 +25,12 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Stream Soundboard</title>
+        <title>JOE-BS Soundboard</title>
         <meta name="description" content="Web-based soundboard for streamers" />
       </Head>
       <div className="home">
-        <h1>Stream Soundboard</h1>
-        <p>Play sounds on your stream with ease</p>
+        <h1>JOE-BS Soundboard</h1>
+        <p>Stream tools that (should) just work</p>
 
         <div className="home-actions">
           <button className="btn btn-primary" onClick={handleCreateRoom}>

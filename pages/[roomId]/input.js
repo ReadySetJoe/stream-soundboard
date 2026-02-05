@@ -15,6 +15,20 @@ export default function InputPage() {
   const [uploadStatus, setUploadStatus] = useState(null);
   const [outputUrl, setOutputUrl] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [activeTab, setActiveTab] = useState('sounds');
+  const [presetGifCategories, setPresetGifCategories] = useState({});
+  const [customGifs, setCustomGifs] = useState([]);
+  const [playingGif, setPlayingGif] = useState(null);
+  const [gifUploadStatus, setGifUploadStatus] = useState(null);
+  const [addGifMode, setAddGifMode] = useState('upload'); // 'upload' or 'url'
+  const [selectedGifFile, setSelectedGifFile] = useState(null);
+  const [gifFormData, setGifFormData] = useState({
+    name: '',
+    url: '',
+    position: 'center',
+    animation: 'fade',
+    duration: 3000,
+  });
 
   // Fetch sounds list
   const fetchSounds = useCallback(async () => {
@@ -27,6 +41,20 @@ export default function InputPage() {
       setCustomSounds(data.customSounds || []);
     } catch (error) {
       console.error('Failed to fetch sounds:', error);
+    }
+  }, [roomId]);
+
+  // Fetch GIFs list
+  const fetchGifs = useCallback(async () => {
+    if (!roomId) return;
+
+    try {
+      const res = await fetch(`/api/gifs?roomId=${roomId}`);
+      const data = await res.json();
+      setPresetGifCategories(data.presetCategories || {});
+      setCustomGifs(data.customGifs || []);
+    } catch (error) {
+      console.error('Failed to fetch GIFs:', error);
     }
   }, [roomId]);
 
@@ -50,15 +78,21 @@ export default function InputPage() {
       fetchSounds();
     });
 
+    s.on('gifs-updated', () => {
+      fetchGifs();
+    });
+
     fetchSounds();
+    fetchGifs();
 
     return () => {
       s.off('connect');
       s.off('disconnect');
       s.off('sounds-updated');
+      s.off('gifs-updated');
       disconnectSocket();
     };
-  }, [roomId, fetchSounds]);
+  }, [roomId, fetchSounds, fetchGifs]);
 
   // Play sound handler
   const handlePlaySound = (sound) => {
@@ -130,6 +164,125 @@ export default function InputPage() {
     }
   };
 
+  // Play GIF handler
+  const handlePlayGif = (gif) => {
+    if (!socket || !connected) return;
+
+    setPlayingGif(gif.id);
+    socket.emit('play-gif', {
+      roomId,
+      gifId: gif.id,
+      gifUrl: gif.url,
+      position: gif.position || 'center',
+      animation: gif.animation || 'fade',
+      duration: gif.duration || 3000,
+    });
+
+    setTimeout(() => setPlayingGif(null), 300);
+  };
+
+  // GIF Upload handler
+  const handleGifUpload = async (e) => {
+    e.preventDefault();
+
+    if (!selectedGifFile) {
+      setGifUploadStatus({ type: 'error', message: 'Please select a file' });
+      return;
+    }
+
+    setGifUploadStatus({ type: 'info', message: 'Uploading...' });
+
+    const formData = new FormData();
+    formData.append('file', selectedGifFile);
+    formData.append('name', gifFormData.name || '');
+    formData.append('position', gifFormData.position);
+    formData.append('animation', gifFormData.animation);
+    formData.append('duration', gifFormData.duration.toString());
+
+    try {
+      const res = await fetch(`/api/gifs/upload?roomId=${roomId}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setGifUploadStatus({ type: 'success', message: `Uploaded: ${data.gif.name}` });
+        fetchGifs();
+        setSelectedGifFile(null);
+        setGifFormData({ name: '', url: '', position: 'center', animation: 'fade', duration: 3000 });
+      } else {
+        setGifUploadStatus({ type: 'error', message: data.error || 'Upload failed' });
+      }
+    } catch (error) {
+      setGifUploadStatus({ type: 'error', message: 'Upload failed' });
+    }
+
+    setTimeout(() => setGifUploadStatus(null), 3000);
+  };
+
+  // GIF URL handler
+  const handleGifUrl = async (e) => {
+    e.preventDefault();
+
+    if (!gifFormData.url) {
+      setGifUploadStatus({ type: 'error', message: 'Please enter a URL' });
+      return;
+    }
+
+    setGifUploadStatus({ type: 'info', message: 'Adding...' });
+
+    try {
+      const res = await fetch(`/api/gifs/url?roomId=${roomId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gifFormData),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setGifUploadStatus({ type: 'success', message: `Added: ${data.gif.name}` });
+        fetchGifs();
+        setGifFormData({ name: '', url: '', position: 'center', animation: 'fade', duration: 3000 });
+      } else {
+        setGifUploadStatus({ type: 'error', message: data.error || 'Failed to add' });
+      }
+    } catch (error) {
+      setGifUploadStatus({ type: 'error', message: 'Failed to add' });
+    }
+
+    setTimeout(() => setGifUploadStatus(null), 3000);
+  };
+
+  // GIF Delete handler
+  const handleDeleteGif = async (gif) => {
+    if (!confirm(`Delete "${gif.name}"?`)) return;
+
+    try {
+      const params = new URLSearchParams({ roomId });
+      if (gif.type === 'url') {
+        params.append('id', gif.id);
+      } else {
+        params.append('filename', gif.filename);
+      }
+
+      const res = await fetch(`/api/gifs/delete?${params}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        fetchGifs();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete GIF');
+      }
+    } catch (error) {
+      alert('Failed to delete GIF');
+    }
+  };
+
   // Set output URL on client only to avoid hydration mismatch
   useEffect(() => {
     if (roomId) {
@@ -160,93 +313,304 @@ export default function InputPage() {
           <code style={{ color: '#4ecdc4', wordBreak: 'break-all' }}>{outputUrl}</code>
         </div>
 
-        {Object.keys(presetCategories).length > 0 && (
+        {/* Tab Navigation */}
+        <div className="tab-nav">
+          <button
+            className={`tab-btn ${activeTab === 'sounds' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sounds')}
+          >
+            Sounds
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'gifs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('gifs')}
+          >
+            GIFs
+          </button>
+        </div>
+
+        {/* Sounds Tab */}
+        {activeTab === 'sounds' && (
           <>
-            {Object.entries(presetCategories).map(([category, sounds]) => (
-              <div key={category} className="sound-category">
-                <h3 className="category-title">{category}</h3>
-                <div className="sound-grid">
-                  {sounds.map((sound) => (
+            {Object.keys(presetCategories).length > 0 && (
+              <>
+                {Object.entries(presetCategories).map(([category, sounds]) => (
+                  <div key={category} className="sound-category">
+                    <h3 className="category-title">{category}</h3>
+                    <div className="sound-grid">
+                      {sounds.map((sound) => (
+                        <button
+                          key={sound.id}
+                          className={`sound-btn ${playingSound === sound.id ? 'playing' : ''}`}
+                          onClick={() => handlePlaySound(sound)}
+                          disabled={!connected}
+                        >
+                          {sound.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            <h2 style={{ marginBottom: '1rem', marginTop: Object.keys(presetCategories).length > 0 ? '2rem' : 0 }}>
+              Custom Sounds
+            </h2>
+            {customSounds.length > 0 ? (
+              <div className="sound-grid">
+                {customSounds.map((sound) => (
+                  <div key={sound.id} className="sound-item">
                     <button
-                      key={sound.id}
                       className={`sound-btn ${playingSound === sound.id ? 'playing' : ''}`}
                       onClick={() => handlePlaySound(sound)}
                       disabled={!connected}
                     >
                       {sound.name}
                     </button>
-                  ))}
-                </div>
+                    <button
+                      className="delete-btn"
+                      onClick={() => handleDelete(sound)}
+                      title="Delete sound"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <p style={{ color: '#666', marginBottom: '1rem' }}>No custom sounds yet. Upload one below!</p>
+            )}
+
+            <div className="upload-section">
+              <h2>Upload Custom Sound</h2>
+              <form className="upload-form" onSubmit={handleUpload}>
+                <div className="file-input-wrapper">
+                  <input
+                    type="file"
+                    name="file"
+                    id="file-upload"
+                    accept=".mp3,.wav,.ogg"
+                    onChange={(e) => setSelectedFile(e.target.files[0] || null)}
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className={`file-input-label ${selectedFile ? 'has-file' : ''}`}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    {selectedFile ? 'Change file' : 'Choose file'}
+                  </label>
+                  {selectedFile && <span className="file-name">{selectedFile.name}</span>}
+                </div>
+                <input type="text" name="name" placeholder="Sound name (optional)" />
+                <button type="submit" className="btn btn-primary" disabled={!selectedFile}>
+                  Upload
+                </button>
+              </form>
+              {uploadStatus && (
+                <div className={`upload-status ${uploadStatus.type}`}>
+                  {uploadStatus.message}
+                </div>
+              )}
+            </div>
           </>
         )}
 
-        <h2 style={{ marginBottom: '1rem', marginTop: Object.keys(presetCategories).length > 0 ? '2rem' : 0 }}>
-          Custom Sounds
-        </h2>
-        {customSounds.length > 0 ? (
-          <div className="sound-grid">
-            {customSounds.map((sound) => (
-              <div key={sound.id} className="sound-item">
+        {/* GIFs Tab */}
+        {activeTab === 'gifs' && (
+          <>
+            {Object.keys(presetGifCategories).length > 0 && (
+              <>
+                {Object.entries(presetGifCategories).map(([category, gifs]) => (
+                  <div key={category} className="sound-category">
+                    <h3 className="category-title">{category}</h3>
+                    <div className="gif-grid">
+                      {gifs.map((gif) => (
+                        <button
+                          key={gif.id}
+                          className={`gif-btn ${playingGif === gif.id ? 'playing' : ''}`}
+                          onClick={() => handlePlayGif(gif)}
+                          disabled={!connected}
+                        >
+                          <img src={gif.url} alt={gif.name} />
+                          <span className="gif-name">{gif.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            <h2 style={{ marginBottom: '1rem', marginTop: Object.keys(presetGifCategories).length > 0 ? '2rem' : 0 }}>
+              Custom GIFs
+            </h2>
+            {customGifs.length > 0 ? (
+              <div className="gif-grid">
+                {customGifs.map((gif) => (
+                  <div key={gif.id} className="gif-item">
+                    <button
+                      className={`gif-btn ${playingGif === gif.id ? 'playing' : ''}`}
+                      onClick={() => handlePlayGif(gif)}
+                      disabled={!connected}
+                    >
+                      <img src={gif.url} alt={gif.name} />
+                      <span className="gif-name">{gif.name}</span>
+                    </button>
+                    <button
+                      className="delete-btn"
+                      onClick={() => handleDeleteGif(gif)}
+                      title="Delete GIF"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: '#666', marginBottom: '1rem' }}>No custom GIFs yet. Add one below!</p>
+            )}
+
+            <div className="add-gif-section">
+              <h2>Add GIF</h2>
+
+              <div className="add-gif-tabs">
                 <button
-                  className={`sound-btn ${playingSound === sound.id ? 'playing' : ''}`}
-                  onClick={() => handlePlaySound(sound)}
-                  disabled={!connected}
+                  className={addGifMode === 'upload' ? 'active' : ''}
+                  onClick={() => setAddGifMode('upload')}
                 >
-                  {sound.name}
+                  Upload File
                 </button>
                 <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(sound)}
-                  title="Delete sound"
+                  className={addGifMode === 'url' ? 'active' : ''}
+                  onClick={() => setAddGifMode('url')}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
+                  Paste URL
                 </button>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ color: '#666', marginBottom: '1rem' }}>No custom sounds yet. Upload one below!</p>
-        )}
 
-        <div className="upload-section">
-          <h2>Upload Custom Sound</h2>
-          <form className="upload-form" onSubmit={handleUpload}>
-            <div className="file-input-wrapper">
-              <input
-                type="file"
-                name="file"
-                id="file-upload"
-                accept=".mp3,.wav,.ogg"
-                onChange={(e) => setSelectedFile(e.target.files[0] || null)}
-              />
-              <label
-                htmlFor="file-upload"
-                className={`file-input-label ${selectedFile ? 'has-file' : ''}`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                {selectedFile ? 'Change file' : 'Choose file'}
-              </label>
-              {selectedFile && <span className="file-name">{selectedFile.name}</span>}
+              <form className="gif-form" onSubmit={addGifMode === 'upload' ? handleGifUpload : handleGifUrl}>
+                {addGifMode === 'upload' ? (
+                  <div className="file-input-wrapper">
+                    <input
+                      type="file"
+                      id="gif-file-upload"
+                      accept=".gif,.webp,.png,.apng"
+                      onChange={(e) => setSelectedGifFile(e.target.files[0] || null)}
+                    />
+                    <label
+                      htmlFor="gif-file-upload"
+                      className={`file-input-label ${selectedGifFile ? 'has-file' : ''}`}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      {selectedGifFile ? 'Change file' : 'Choose GIF'}
+                    </label>
+                    {selectedGifFile && <span className="file-name">{selectedGifFile.name}</span>}
+                  </div>
+                ) : (
+                  <label>
+                    GIF URL
+                    <input
+                      type="url"
+                      placeholder="https://media.giphy.com/..."
+                      value={gifFormData.url}
+                      onChange={(e) => setGifFormData({ ...gifFormData, url: e.target.value })}
+                    />
+                  </label>
+                )}
+
+                <div className="gif-form-row">
+                  <label>
+                    Name (optional)
+                    <input
+                      type="text"
+                      placeholder="My GIF"
+                      value={gifFormData.name}
+                      onChange={(e) => setGifFormData({ ...gifFormData, name: e.target.value })}
+                    />
+                  </label>
+                </div>
+
+                <div className="gif-form-row">
+                  <label>
+                    Position
+                    <select
+                      value={gifFormData.position}
+                      onChange={(e) => setGifFormData({ ...gifFormData, position: e.target.value })}
+                    >
+                      <option value="top-left">Top Left</option>
+                      <option value="top-center">Top Center</option>
+                      <option value="top-right">Top Right</option>
+                      <option value="middle-left">Middle Left</option>
+                      <option value="center">Center</option>
+                      <option value="middle-right">Middle Right</option>
+                      <option value="bottom-left">Bottom Left</option>
+                      <option value="bottom-center">Bottom Center</option>
+                      <option value="bottom-right">Bottom Right</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Animation
+                    <select
+                      value={gifFormData.animation}
+                      onChange={(e) => setGifFormData({ ...gifFormData, animation: e.target.value })}
+                    >
+                      <option value="fade">Fade</option>
+                      <option value="slide">Slide</option>
+                      <option value="bounce">Bounce</option>
+                      <option value="shake">Shake</option>
+                      <option value="spin">Spin</option>
+                      <option value="zoom">Zoom</option>
+                      <option value="wiggle">Wiggle</option>
+                      <option value="bounce-around">Bounce Around</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Duration (seconds)
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      step="0.5"
+                      value={gifFormData.duration / 1000}
+                      onChange={(e) => setGifFormData({ ...gifFormData, duration: parseFloat(e.target.value) * 1000 })}
+                    />
+                  </label>
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={addGifMode === 'upload' ? !selectedGifFile : !gifFormData.url}
+                  >
+                    {addGifMode === 'upload' ? 'Upload' : 'Add GIF'}
+                  </button>
+                </div>
+              </form>
+
+              {gifUploadStatus && (
+                <div className={`upload-status ${gifUploadStatus.type}`}>
+                  {gifUploadStatus.message}
+                </div>
+              )}
             </div>
-            <input type="text" name="name" placeholder="Sound name (optional)" />
-            <button type="submit" className="btn btn-primary" disabled={!selectedFile}>
-              Upload
-            </button>
-          </form>
-          {uploadStatus && (
-            <div className={`upload-status ${uploadStatus.type}`}>
-              {uploadStatus.message}
-            </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </>
   );

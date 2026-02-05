@@ -8,6 +8,7 @@ export default function OutputPage() {
   const { roomId } = router.query;
   const [sounds, setSounds] = useState([]);
   const audioRefs = useRef({});
+  const [activeGifs, setActiveGifs] = useState([]);
 
   // Fetch sounds to pre-load
   const fetchSounds = useCallback(async () => {
@@ -39,6 +40,18 @@ export default function OutputPage() {
       playSound(soundUrl);
     });
 
+    socket.on('gif-triggered', ({ gifId, gifUrl, position, animation, duration }) => {
+      console.log('GIF triggered:', gifId, gifUrl);
+      const id = `${gifId}-${Date.now()}`;
+
+      setActiveGifs(prev => [...prev, { id, gifUrl, position, animation, duration }]);
+
+      // Remove after duration
+      setTimeout(() => {
+        setActiveGifs(prev => prev.filter(g => g.id !== id));
+      }, duration || 3000);
+    });
+
     socket.on('sounds-updated', () => {
       fetchSounds();
     });
@@ -48,6 +61,7 @@ export default function OutputPage() {
     return () => {
       socket.off('connect');
       socket.off('sound-triggered');
+      socket.off('gif-triggered');
       socket.off('sounds-updated');
       disconnectSocket();
     };
@@ -73,6 +87,23 @@ export default function OutputPage() {
         `}</style>
       </Head>
       <div className="output-page">
+        {/* GIF overlay */}
+        <div className="gif-overlay">
+          {activeGifs.map((gif) => (
+            <div
+              key={gif.id}
+              className={`gif-container ${gif.position || 'center'}`}
+            >
+              <img
+                src={gif.gifUrl}
+                alt=""
+                className={`gif-anim-${gif.animation || 'fade'}`}
+                style={{ '--gif-duration': `${(gif.duration || 3000) / 1000}s` }}
+              />
+            </div>
+          ))}
+        </div>
+
         {/* Hidden audio elements for preloading */}
         <div className="output-hidden">
           {sounds.map((sound) => (

@@ -499,3 +499,213 @@ body {
 .gif-anim-zoom { animation: gif-zoom var(--gif-duration, 3s) ease-out forwards; }
 .gif-anim-wiggle { animation: gif-wiggle var(--gif-duration, 3s) ease-in-out forwards; }
 .gif-anim-bounce-around { animation: gif-bounce-around var(--gif-duration, 3s) ease-in-out forwards; }
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #3d3d5c;
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tab-btn:hover {
+  color: #aaa;
+}
+
+.tab-btn.active {
+  color: #fff;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* GIF Grid */
+.gif-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.gif-item {
+  position: relative;
+}
+
+.gif-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 12px;
+  background: #2d2d44;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.gif-btn:hover {
+  transform: scale(1.05);
+}
+
+.gif-btn:active {
+  transform: scale(0.95);
+}
+
+.gif-btn.playing {
+  animation: pulse 0.3s ease-out;
+}
+
+.gif-btn img {
+  max-width: 80%;
+  max-height: 60%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.gif-btn .gif-name {
+  font-size: 0.75rem;
+  color: #aaa;
+  text-align: center;
+  word-break: break-word;
+  max-height: 2.4em;
+  overflow: hidden;
+}
+
+.gif-item .delete-btn {
+  top: 4px;
+  right: 4px;
+}
+
+.gif-item .edit-btn {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.gif-item:hover .edit-btn {
+  opacity: 1;
+}
+
+.edit-btn:hover {
+  background: #667eea;
+}
+
+/* Add GIF Section */
+.add-gif-section {
+  background: #2d2d44;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-top: 2rem;
+}
+
+.add-gif-section h2 {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.add-gif-tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.add-gif-tabs button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-gif-tabs button.active {
+  background: #3d3d5c;
+  border-color: #667eea;
+  color: #fff;
+}
+
+.gif-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.gif-form-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.gif-form-row > * {
+  flex: 1;
+  min-width: 120px;
+}
+
+.gif-form select,
+.gif-form input[type="text"],
+.gif-form input[type="url"],
+.gif-form input[type="number"] {
+  padding: 0.75rem;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background: #1a1a2e;
+  color: #eee;
+  font-size: 0.9rem;
+}
+
+.gif-form select:focus,
+.gif-form input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.gif-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.gif-form .form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}

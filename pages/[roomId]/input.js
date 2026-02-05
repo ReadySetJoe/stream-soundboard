@@ -25,6 +25,8 @@ export default function InputPage() {
   const [gifFormData, setGifFormData] = useState({
     name: '',
     url: '',
+  });
+  const [gifDisplaySettings, setGifDisplaySettings] = useState({
     position: 'center',
     animation: 'fade',
     duration: 3000,
@@ -164,7 +166,7 @@ export default function InputPage() {
     }
   };
 
-  // Play GIF handler
+  // Play GIF handler - uses global display settings
   const handlePlayGif = (gif) => {
     if (!socket || !connected) return;
 
@@ -173,9 +175,9 @@ export default function InputPage() {
       roomId,
       gifId: gif.id,
       gifUrl: gif.url,
-      position: gif.position || 'center',
-      animation: gif.animation || 'fade',
-      duration: gif.duration || 3000,
+      position: gifDisplaySettings.position,
+      animation: gifDisplaySettings.animation,
+      duration: gifDisplaySettings.duration,
     });
 
     setTimeout(() => setPlayingGif(null), 300);
@@ -195,9 +197,6 @@ export default function InputPage() {
     const formData = new FormData();
     formData.append('file', selectedGifFile);
     formData.append('name', gifFormData.name || '');
-    formData.append('position', gifFormData.position);
-    formData.append('animation', gifFormData.animation);
-    formData.append('duration', gifFormData.duration.toString());
 
     try {
       const res = await fetch(`/api/gifs/upload?roomId=${roomId}`, {
@@ -211,7 +210,7 @@ export default function InputPage() {
         setGifUploadStatus({ type: 'success', message: `Uploaded: ${data.gif.name}` });
         fetchGifs();
         setSelectedGifFile(null);
-        setGifFormData({ name: '', url: '', position: 'center', animation: 'fade', duration: 3000 });
+        setGifFormData({ name: '', url: '' });
       } else {
         setGifUploadStatus({ type: 'error', message: data.error || 'Upload failed' });
       }
@@ -237,7 +236,7 @@ export default function InputPage() {
       const res = await fetch(`/api/gifs/url?roomId=${roomId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(gifFormData),
+        body: JSON.stringify({ name: gifFormData.name, url: gifFormData.url }),
       });
 
       const data = await res.json();
@@ -245,7 +244,7 @@ export default function InputPage() {
       if (res.ok) {
         setGifUploadStatus({ type: 'success', message: `Added: ${data.gif.name}` });
         fetchGifs();
-        setGifFormData({ name: '', url: '', position: 'center', animation: 'fade', duration: 3000 });
+        setGifFormData({ name: '', url: '' });
       } else {
         setGifUploadStatus({ type: 'error', message: data.error || 'Failed to add' });
       }
@@ -425,28 +424,61 @@ export default function InputPage() {
         {/* GIFs Tab */}
         {activeTab === 'gifs' && (
           <>
-            {Object.keys(presetGifCategories).length > 0 && (
-              <>
-                {Object.entries(presetGifCategories).map(([category, gifs]) => (
-                  <div key={category} className="sound-category">
-                    <h3 className="category-title">{category}</h3>
-                    <div className="gif-grid">
-                      {gifs.map((gif) => (
-                        <button
-                          key={gif.id}
-                          className={`gif-btn ${playingGif === gif.id ? 'playing' : ''}`}
-                          onClick={() => handlePlayGif(gif)}
-                          disabled={!connected}
-                        >
-                          <img src={gif.url} alt={gif.name} />
-                          <span className="gif-name">{gif.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
+            {/* Display Settings */}
+            <div className="gif-display-settings">
+              <h3>Display Settings</h3>
+              <p style={{ fontSize: '0.85rem', color: '#888', marginBottom: '0.75rem' }}>
+                These settings apply when you click any GIF below
+              </p>
+              <div className="gif-form-row">
+                <label>
+                  Position
+                  <select
+                    value={gifDisplaySettings.position}
+                    onChange={(e) => setGifDisplaySettings({ ...gifDisplaySettings, position: e.target.value })}
+                  >
+                    <option value="top-left">Top Left</option>
+                    <option value="top-center">Top Center</option>
+                    <option value="top-right">Top Right</option>
+                    <option value="middle-left">Middle Left</option>
+                    <option value="center">Center</option>
+                    <option value="middle-right">Middle Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="bottom-center">Bottom Center</option>
+                    <option value="bottom-right">Bottom Right</option>
+                  </select>
+                </label>
+
+                <label>
+                  Animation
+                  <select
+                    value={gifDisplaySettings.animation}
+                    onChange={(e) => setGifDisplaySettings({ ...gifDisplaySettings, animation: e.target.value })}
+                  >
+                    <option value="fade">Fade</option>
+                    <option value="slide">Slide</option>
+                    <option value="bounce">Bounce</option>
+                    <option value="shake">Shake</option>
+                    <option value="spin">Spin</option>
+                    <option value="zoom">Zoom</option>
+                    <option value="wiggle">Wiggle</option>
+                    <option value="bounce-around">Bounce Around</option>
+                  </select>
+                </label>
+
+                <label>
+                  Duration (seconds)
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={gifDisplaySettings.duration / 1000}
+                    onChange={(e) => setGifDisplaySettings({ ...gifDisplaySettings, duration: parseFloat(e.target.value) * 1000 })}
+                  />
+                </label>
+              </div>
+            </div>
 
             <h2 style={{ marginBottom: '1rem', marginTop: Object.keys(presetGifCategories).length > 0 ? '2rem' : 0 }}>
               Custom GIFs
@@ -531,66 +563,15 @@ export default function InputPage() {
                   </label>
                 )}
 
-                <div className="gif-form-row">
-                  <label>
-                    Name (optional)
-                    <input
-                      type="text"
-                      placeholder="My GIF"
-                      value={gifFormData.name}
-                      onChange={(e) => setGifFormData({ ...gifFormData, name: e.target.value })}
-                    />
-                  </label>
-                </div>
-
-                <div className="gif-form-row">
-                  <label>
-                    Position
-                    <select
-                      value={gifFormData.position}
-                      onChange={(e) => setGifFormData({ ...gifFormData, position: e.target.value })}
-                    >
-                      <option value="top-left">Top Left</option>
-                      <option value="top-center">Top Center</option>
-                      <option value="top-right">Top Right</option>
-                      <option value="middle-left">Middle Left</option>
-                      <option value="center">Center</option>
-                      <option value="middle-right">Middle Right</option>
-                      <option value="bottom-left">Bottom Left</option>
-                      <option value="bottom-center">Bottom Center</option>
-                      <option value="bottom-right">Bottom Right</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    Animation
-                    <select
-                      value={gifFormData.animation}
-                      onChange={(e) => setGifFormData({ ...gifFormData, animation: e.target.value })}
-                    >
-                      <option value="fade">Fade</option>
-                      <option value="slide">Slide</option>
-                      <option value="bounce">Bounce</option>
-                      <option value="shake">Shake</option>
-                      <option value="spin">Spin</option>
-                      <option value="zoom">Zoom</option>
-                      <option value="wiggle">Wiggle</option>
-                      <option value="bounce-around">Bounce Around</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    Duration (seconds)
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      step="0.5"
-                      value={gifFormData.duration / 1000}
-                      onChange={(e) => setGifFormData({ ...gifFormData, duration: parseFloat(e.target.value) * 1000 })}
-                    />
-                  </label>
-                </div>
+                <label>
+                  Name (optional)
+                  <input
+                    type="text"
+                    placeholder="My GIF"
+                    value={gifFormData.name}
+                    onChange={(e) => setGifFormData({ ...gifFormData, name: e.target.value })}
+                  />
+                </label>
 
                 <div className="form-actions">
                   <button
@@ -609,6 +590,29 @@ export default function InputPage() {
                 </div>
               )}
             </div>
+
+            {Object.keys(presetGifCategories).length > 0 && (
+              <>
+                {Object.entries(presetGifCategories).map(([category, gifs]) => (
+                  <div key={category} className="sound-category">
+                    <h3 className="category-title">{category}</h3>
+                    <div className="gif-grid">
+                      {gifs.map((gif) => (
+                        <button
+                          key={gif.id}
+                          className={`gif-btn ${playingGif === gif.id ? 'playing' : ''}`}
+                          onClick={() => handlePlayGif(gif)}
+                          disabled={!connected}
+                        >
+                          <img src={gif.url} alt={gif.name} />
+                          <span className="gif-name">{gif.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </>
         )}
       </div>

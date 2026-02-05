@@ -50,6 +50,11 @@ app.prepare().then(() => {
       socket.to(roomId).emit('sound-triggered', { soundId, soundUrl });
     });
 
+    socket.on('play-gif', ({ roomId, gifId, gifUrl, position, animation, duration }) => {
+      console.log(`Playing gif ${gifId} in room ${roomId}`);
+      socket.to(roomId).emit('gif-triggered', { gifId, gifUrl, position, animation, duration });
+    });
+
     socket.on('disconnect', () => {
       console.log('Client disconnected:', socket.id);
     });
